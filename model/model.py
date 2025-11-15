@@ -26,6 +26,18 @@ class Model:
         :return: lista di tuple --> (nome dell'impianto, media), es. (Impianto A, 123)
         """
         # TODO
+        consumi = self._consumoDAO.getConsumibyMonth(mese)
+        dati = {impianto.id : [] for impianto in self._impianti }
+
+        for consumo in consumi:
+            dati[consumo.id_impianto].append(consumo.kwh)
+        risultati = []
+
+        for impianto in self._impianti:
+            lista_kwh = dati[impianto.id]
+            media = (sum(lista_kwh) / len(lista_kwh) if len(lista_kwh) > 0 else 0)
+            risultati.append((impianto.nome, round(media, 2)))
+        return risultati
 
     def get_sequenza_ottima(self, mese:int):
         """
@@ -47,6 +59,27 @@ class Model:
     def __ricorsione(self, sequenza_parziale, giorno, ultimo_impianto, costo_corrente, consumi_settimana):
         """ Implementa la ricorsione """
         # TODO
+        if giorno == 8:
+            if self.__costo_ottimo == -1 or costo_corrente < self.__costo_ottimo:
+                self._costo_ottimo = costo_corrente
+                self.__sequenza_ottima = sequenza_parziale.deepCopy()
+            return
+
+        for impianto in consumi_settimana.keys():
+            costo_giorno = consumi_settimana[impianto][giorno-1]
+            costo_spostamento = 0
+
+            if ultimo_impianto is not None and ultimo_impianto != impianto:
+                costo_spostamento = 5
+            nuovo_costo = costo_corrente + costo_giorno + costo_spostamento
+
+            if self.__costo_ottimo != -1 and nuovo_costo >= self.__costo_ottimo:
+                continue
+            sequenza_parziale.append(impianto)
+
+            self.__ricorsione(sequenza_parziale, giorno+1, impianto, nuovo_costo, consumi_settimana)
+
+            sequenza_parziale.pop()
 
     def __get_consumi_prima_settimana_mese(self, mese: int):
         """
@@ -54,4 +87,11 @@ class Model:
         :return: un dizionario: {id_impianto: [kwh_giorno1, ..., kwh_giorno7]}
         """
         # TODO
+        consumi = self._consumoDAO.getConsumibyMonth(mese)
+        dati = {impianto.id : [0]*7 for impianto in self._impianti}
 
+        for consumo in consumi:
+            giorno = consumo.data.day
+            if 1 <= giorno <= 7:
+                dati[consumo.id_impianto][giorno-1] = consumo.khw
+        return dati
